@@ -39,6 +39,73 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("You are logged in as:", user.ID)
+
+	// Retrieve the first 50 playlists for the user.
+	playlists, err := client.GetPlaylistsForUser(user.ID)
+	if err != nil {
+		log.Fatalf("could not get playlists: %v", err)
+	}
+
+	//fmt.Println("Your playlists", playlists)
+
+	// Vars used to designate the original playlist and the target playlist.
+	var (
+		originID spotify.ID
+		targetID spotify.ID
+	)
+
+	for _, p := range playlists.Playlists {
+
+		fmt.Println("Your playlists name", p.Name, p.ID)
+
+		if p.Name == "Shallow" {
+			fmt.Println("Shallow", p.Name, p.ID)
+			originID = p.ID
+		}
+
+		if p.Name == "chill" {
+			fmt.Println("chill", p.Name, p.ID)
+			targetID = p.ID
+		}
+	}
+
+	if originID == "" || targetID == "" {
+		log.Fatal("did not get playlist IDs")
+	}
+
+	originalPlaylist, err := client.GetPlaylist(originID)
+	if err != nil {
+		log.Fatalf("could not get original playlist: %v", err)
+	}
+
+	// For each song in original list check if it is saved in the library.
+	trackIDs := make([]spotify.ID, 0, len(originalPlaylist.Tracks.Tracks))
+
+	// Extract the Track IDs for each song.
+	for _, t := range originalPlaylist.Tracks.Tracks {
+		trackIDs = append(trackIDs, t.Track.SimpleTrack.ID)
+	}
+
+	// Check if they are in the library.
+	hasTracks, err := client.UserHasTracks(trackIDs...)
+	if err != nil {
+		log.Fatalf("could not check if tracks exist in library: %v", err)
+	}
+
+	addTracks := make([]spotify.ID, 0, len(originalPlaylist.Tracks.Tracks))
+	for i, b := range hasTracks {
+		if b {
+			addTracks = append(addTracks, trackIDs[i])
+		}
+	}
+
+	// Add each song that needs to be added to the taret playlist.
+	_, err = client.AddTracksToPlaylist(targetID, addTracks...)
+	if err != nil {
+		log.Fatalf("could not add tracks to playlist: %v", err)
+	}
+
+	log.Printf("successfully added %d tracks to playlist %s\n", len(addTracks), "chill")
 }
 
 func completeAuth(w http.ResponseWriter, r *http.Request) {
