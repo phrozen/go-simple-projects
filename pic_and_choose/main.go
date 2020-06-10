@@ -13,23 +13,19 @@ import (
 var imagePath string
 var option string
 var blurFactor int
+var help bool
 
 func init() {
-	flag.StringVar(&imagePath,
-		"imagePath",
-		"C:\\Users\\avill\\Desktop\\Projects\\go-simple-projects\\pic_and_choose\\nature.jpeg",
-		"path to image")
-	flag.StringVar(&option, "option", "blur", "option")
-	flag.IntVar(&blurFactor, "blurFactor", 0, "Blur factor for image")
-
+	flag.StringVar(&imagePath, "f", "nature.jpeg", "Image path")
+	flag.StringVar(&option, "o", "blur", "image processing operation option")
+	flag.IntVar(&blurFactor, "b", 0, "Blur factor for image")
+	flag.BoolVar(&help, "h", false, "Help for running this program")
 	flag.Parse()
 }
 
 func main() {
-	if option == "help" {
-		fmt.Println("Sample command: go run .\\main.go " +
-			"-imagePath=\"C:\\Users\\avill\\Desktop\\Projects\\go-simple-projects\\pic_and_choose\\surfer.jpeg\" -option=\"rotate\" -blurFactor=10")
-		return
+	if help == true {
+		flag.Usage()
 	}
 
 	image, err := getImageFromFilePath(imagePath)
@@ -43,7 +39,7 @@ func main() {
 	} else if option == "rotate" {
 		rotateImage(image)
 	} else {
-		fmt.Println("Option not supported yet! Get help by running: -option=\"help\"")
+		fmt.Println("Option not supported yet! Get help by adding this flag: -help")
 	}
 }
 
