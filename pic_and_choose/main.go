@@ -1,75 +1,75 @@
 package main
 
 import (
-	"bufio"
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
-	_ "image/jpeg"
 	"log"
 	"os"
-	"strconv"
-	"strings"
 )
 
+var imagePath string
+var option string
+var blurFactor int
+var help bool
+
+func init() {
+	flag.StringVar(&imagePath, "f", "nature.jpeg", "Image path")
+	flag.StringVar(&option, "o", "blur", "image processing operation option")
+	flag.IntVar(&blurFactor, "b", 0, "Blur factor for image")
+	flag.BoolVar(&help, "h", false, "Help for running this program")
+	flag.Parse()
+}
+
 func main() {
-	fmt.Println("hello world from pic_and_choose")
-	if len(os.Args) < 2 {
-		log.Fatal("Invalid script call. Should pass an image path as argument")
-		return
+	if help == true {
+		flag.Usage()
 	}
 
-	fmt.Println("Image to process: " + os.Args[1])
-	image, err := getImageFromFilePath(os.Args[1])
+	image, err := getImageFromFilePath(imagePath)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
 
-	reader := bufio.NewReader(os.Stdin)
-	for true {
-		fmt.Print("Choose an option (\"blur\", \"exit\"): ")
-		option, _ := reader.ReadString('\n')
-		option = strings.TrimSpace(option)
-
-		if option == "blur" {
-			blurImage(image, 3)
-		} else if option == "exit" {
-			fmt.Println("Exiting...")
-			return
-		} else {
-			fmt.Println("Option not supported yet!")
-		}
+	if option == "blur" {
+		blurImage(image, blurFactor)
+	} else if option == "rotate" {
+		rotateImage(image)
+	} else {
+		fmt.Println("Option not supported yet! Get help by adding this flag: -help")
 	}
-
 }
 
-func blurImage(image image.Image, blurFactor int) {
-	var factor uint16 = uint16(blurFactor)
-	var factorSquared uint16 = factor * factor
+func blurImage(img image.Image, blurFactor int) {
+	width := img.Bounds().Max.X
+	height := img.Bounds().Max.Y
+	if blurFactor == 0 {
+		blurFactor = (width + height) / 100
+	}
+	fmt.Printf("blurFactor=%d\n", blurFactor)
+	fmt.Printf("dimensions: %d x %d\n", width, height)
 
-	width := image.Bounds().Max.X
-	height := image.Bounds().Max.Y
+	var factor uint32 = uint32(blurFactor)
+	var factorSquared uint32 = factor * factor
 
-	fmt.Println("Width: " + strconv.Itoa(width))
-	fmt.Println("Height: " + strconv.Itoa(height))
-
-	newImage := NewMyImg(image)
+	newImage := NewDrawableImage(img)
 
 	for i := 0; i < height; i += int(factor) {
 		for j := 0; j < width; j += int(factor) {
-			var r uint16 = 0
-			var g uint16 = 0
-			var b uint16 = 0
-			var a uint16 = 0
+			var r uint32 = 0
+			var g uint32 = 0
+			var b uint32 = 0
+			var a uint32 = 0
 			for k := i; k < int(factor)+i && k < height; k++ {
 				for l := j; l < int(factor)+j && l < width; l++ {
-					red, green, blue, alpha := rgbaToPixel(image.At(l, k).RGBA())
-					r += uint16(red)
-					g += uint16(green)
-					b += uint16(blue)
-					a += uint16(alpha)
+					red, green, blue, alpha := rgbaToPixel(img.At(l, k).RGBA())
+					r += uint32(red)
+					g += uint32(green)
+					b += uint32(blue)
+					a += uint32(alpha)
 				}
 			}
 			r /= factorSquared
@@ -86,37 +86,38 @@ func blurImage(image image.Image, blurFactor int) {
 		}
 	}
 
-	// Save new image
-	outFile, _ := os.Create("changed.jpeg")
+	outFile, _ := os.Create("image_blurred.jpeg")
 	jpeg.Encode(outFile, newImage, nil)
 
 	fmt.Println("Image blurred successfully!")
+}
+
+func rotateImage(img image.Image) {
+	width := img.Bounds().Max.X
+	height := img.Bounds().Max.Y
+	fmt.Printf("dimensions: %d x %d\n", width, height)
+
+	imageHolder := image.NewNRGBA(image.Rectangle{img.Bounds().Min, image.Point{height, width}})
+
+	for i := 0; i < height; i++ {
+		for j := 0; j < width; j++ {
+			red, green, blue, alpha := rgbaToPixel(img.At(j, i).RGBA())
+			imageHolder.Set(i, j, color.RGBA{red, green, blue, alpha})
+		}
+	}
+
+	outFile, _ := os.Create("image_rotated.jpeg")
+	jpeg.Encode(outFile, imageHolder, nil)
+
+	fmt.Println("Image rotated successfully!")
 }
 
 func rgbaToPixel(r uint32, g uint32, b uint32, a uint32) (uint8, uint8, uint8, uint8) {
 	return uint8(r / 257), uint8(g / 257), uint8(b / 257), uint8(a / 257)
 }
 
-type MyImg struct {
-	image.Image
-	custom map[image.Point]color.Color
-}
-
-func NewMyImg(img image.Image) *MyImg {
-	return &MyImg{img, map[image.Point]color.Color{}}
-}
-
-func (m *MyImg) Set(x, y int, c color.Color) {
-	m.custom[image.Point{x, y}] = c
-}
-
-func (m *MyImg) At(x, y int) color.Color {
-	// Explicitly changed part: custom colors of the changed pixels:
-	if c := m.custom[image.Point{x, y}]; c != nil {
-		return c
-	}
-	// Unchanged part: colors of the original image:
-	return m.Image.At(x, y)
+func NewDrawableImage(img image.Image) *image.NRGBA {
+	return image.NewNRGBA(img.Bounds())
 }
 
 func getImageFromFilePath(filePath string) (image.Image, error) {
