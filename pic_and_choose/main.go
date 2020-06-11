@@ -52,24 +52,24 @@ func blurImage(image image.Image, blurFactor int) {
 	fmt.Printf("blurFactor=%d\n", blurFactor)
 	fmt.Printf("dimensions: %d x %d\n", width, height)
 
-	var factor uint16 = uint16(blurFactor)
-	var factorSquared uint16 = factor * factor
+	var factor uint32 = uint32(blurFactor)
+	var factorSquared uint32 = factor * factor
 
 	newImage := NewDrawableImage(image)
 
 	for i := 0; i < height; i += int(factor) {
 		for j := 0; j < width; j += int(factor) {
-			var r uint16 = 0
-			var g uint16 = 0
-			var b uint16 = 0
-			var a uint16 = 0
+			var r uint32 = 0
+			var g uint32 = 0
+			var b uint32 = 0
+			var a uint32 = 0
 			for k := i; k < int(factor)+i && k < height; k++ {
 				for l := j; l < int(factor)+j && l < width; l++ {
 					red, green, blue, alpha := rgbaToPixel(image.At(l, k).RGBA())
-					r += uint16(red)
-					g += uint16(green)
-					b += uint16(blue)
-					a += uint16(alpha)
+					r += uint32(red)
+					g += uint32(green)
+					b += uint32(blue)
+					a += uint32(alpha)
 				}
 			}
 			r /= factorSquared
