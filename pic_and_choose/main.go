@@ -43,9 +43,9 @@ func main() {
 	}
 }
 
-func blurImage(image image.Image, blurFactor int) {
-	width := image.Bounds().Max.X
-	height := image.Bounds().Max.Y
+func blurImage(img image.Image, blurFactor int) {
+	width := img.Bounds().Max.X
+	height := img.Bounds().Max.Y
 	if blurFactor == 0 {
 		blurFactor = (width + height) / 100
 	}
@@ -55,7 +55,7 @@ func blurImage(image image.Image, blurFactor int) {
 	var factor uint32 = uint32(blurFactor)
 	var factorSquared uint32 = factor * factor
 
-	newImage := NewDrawableImage(image)
+	newImage := NewDrawableImage(img)
 
 	for i := 0; i < height; i += int(factor) {
 		for j := 0; j < width; j += int(factor) {
@@ -65,7 +65,7 @@ func blurImage(image image.Image, blurFactor int) {
 			var a uint32 = 0
 			for k := i; k < int(factor)+i && k < height; k++ {
 				for l := j; l < int(factor)+j && l < width; l++ {
-					red, green, blue, alpha := rgbaToPixel(image.At(l, k).RGBA())
+					red, green, blue, alpha := rgbaToPixel(img.At(l, k).RGBA())
 					r += uint32(red)
 					g += uint32(green)
 					b += uint32(blue)
@@ -95,6 +95,7 @@ func blurImage(image image.Image, blurFactor int) {
 func rotateImage(img image.Image) {
 	width := img.Bounds().Max.X
 	height := img.Bounds().Max.Y
+	fmt.Printf("dimensions: %d x %d\n", width, height)
 
 	imageHolder := image.NewNRGBA(image.Rectangle{img.Bounds().Min, image.Point{height, width}})
 
