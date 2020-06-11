@@ -57,7 +57,7 @@ func blurImage(img image.Image, blurFactor int) {
 	var factor uint32 = uint32(blurFactor)
 	var factorSquared uint32 = factor * factor
 
-	newImage := NewDrawableImage(img)
+	drawableImage := NewDrawableImage(img)
 
 	for i := 0; i < height; i += int(factor) {
 		for j := 0; j < width; j += int(factor) {
@@ -67,7 +67,7 @@ func blurImage(img image.Image, blurFactor int) {
 			var a uint32 = 0
 			for k := i; k < int(factor)+i && k < height; k++ {
 				for l := j; l < int(factor)+j && l < width; l++ {
-					red, green, blue, alpha := rgbaToPixel(img.At(l, k).RGBA())
+					red, green, blue, alpha := rgbaToPixel(drawableImage.At(l, k).RGBA())
 					r += uint32(red)
 					g += uint32(green)
 					b += uint32(blue)
@@ -82,14 +82,14 @@ func blurImage(img image.Image, blurFactor int) {
 			for k := i; k < int(factor)+i && k < height; k++ {
 				for l := j; l < int(factor)+j && l < width; l++ {
 					newRgb := color.RGBA{uint8(r), uint8(g), uint8(b), uint8(a)}
-					newImage.Set(l, k, newRgb)
+					drawableImage.Set(l, k, newRgb)
 				}
 			}
 		}
 	}
 
 	outFile, _ := os.Create("image_blurred.jpeg")
-	jpeg.Encode(outFile, newImage, nil)
+	jpeg.Encode(outFile, drawableImage, nil)
 
 	fmt.Println("Image blurred successfully!")
 }
@@ -99,24 +99,24 @@ func rotateImage(img image.Image) {
 	height := img.Bounds().Max.Y
 	fmt.Printf("dimensions: %d x %d\n", width, height)
 
-	imageHolder := image.NewNRGBA(image.Rectangle{img.Bounds().Min, image.Point{height, width}})
+	drawableImage := image.NewNRGBA(image.Rectangle{img.Bounds().Min, image.Point{height, width}})
 
 	for i := 0; i < height; i++ {
 		for j := 0; j < width; j++ {
 			red, green, blue, alpha := rgbaToPixel(img.At(j, i).RGBA())
-			imageHolder.Set(i, j, color.RGBA{red, green, blue, alpha})
+			drawableImage.Set(i, j, color.RGBA{red, green, blue, alpha})
 		}
 	}
 
 	outFile, _ := os.Create("image_rotated.jpeg")
-	jpeg.Encode(outFile, imageHolder, nil)
+	jpeg.Encode(outFile, drawableImage, nil)
 
 	fmt.Println("Image rotated successfully!")
 }
 
 func imageResize(img image.Image) {
 	newImage := NewDrawableImage(img)
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 600; i++ {
 		energy := calculateImageEnergy(newImage)
 		bestPath := getWeakestPath(energy)
 		newImage = resize(bestPath, newImage)
@@ -127,7 +127,7 @@ func imageResize(img image.Image) {
 
 	fmt.Println("Image resized successfully!")
 }
-func calculateImageEnergy(img *image.NRGBA) [][]int {
+func calculateImageEnergy(img *DrawableImage) [][]int {
 	width := img.Bounds().Max.X
 	height := img.Bounds().Max.Y
 	fmt.Printf("dimensions: %d x %d\n", width, height)
@@ -219,7 +219,7 @@ func getWeakestPath(energy [][]int) []int {
 
 	return list
 }
-func resize(list []int, img *image.NRGBA) *image.NRGBA {
+func resize(list []int, img *DrawableImage) *DrawableImage {
 	width := img.Bounds().Max.X
 	height := img.Bounds().Max.Y
 
@@ -233,7 +233,7 @@ func resize(list []int, img *image.NRGBA) *image.NRGBA {
 		}
 	}
 
-	return imageResized
+	return NewDrawableImage(imageResized)
 }
 
 type Pointer struct {
@@ -264,8 +264,26 @@ func rgbaToPixelToInt(r uint32, g uint32, b uint32, a uint32) (int, int, int, in
 	return int(r / 257), int(g / 257), int(b / 257), int(a / 257)
 }
 
-func NewDrawableImage(img image.Image) *image.NRGBA {
-	return image.NewNRGBA(img.Bounds())
+type DrawableImage struct {
+	image.Image
+	custom map[image.Point]color.Color
+}
+
+func NewDrawableImage(img image.Image) *DrawableImage {
+	return &DrawableImage{img, map[image.Point]color.Color{}}
+}
+
+func (m *DrawableImage) Set(x, y int, c color.Color) {
+	m.custom[image.Point{x, y}] = c
+}
+
+func (m *DrawableImage) At(x, y int) color.Color {
+	// Explicitly changed part: custom colors of the changed pixels:
+	if c := m.custom[image.Point{x, y}]; c != nil {
+		return c
+	}
+	// Unchanged part: colors of the original image:
+	return m.Image.At(x, y)
 }
 
 func getImageFromFilePath(filePath string) (image.Image, error) {
